@@ -8,6 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { searchTable } from '@/utils/database';
 import { Search, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const searchSchema = z.object({
+  tableName: z.string().min(1, 'Table is required'),
+  attribute: z.string().trim().min(1, 'Attribute is required').max(100),
+  value: z.string().trim().min(1, 'Value is required').max(500)
+});
 
 export const SearchTab: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState('');
@@ -17,13 +24,19 @@ export const SearchTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const availableTables = ['Account', 'Appointments', 'Messages', 'HealthRecord'];
+  const availableTables = ['appointments', 'doctor_patient_messages', 'health_records', 'medications'];
 
   const handleSearch = async () => {
-    if (!selectedTable || !searchAttribute || !searchValue) {
+    const validation = searchSchema.safeParse({
+      tableName: selectedTable,
+      attribute: searchAttribute,
+      value: searchValue
+    });
+
+    if (!validation.success) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all search fields",
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
         variant: "destructive",
       });
       return;
@@ -31,11 +44,10 @@ export const SearchTab: React.FC = () => {
 
     setIsLoading(true);
     try {
-      console.log(`Searching ${selectedTable} for ${searchAttribute} = ${searchValue}`);
-      const searchResults = searchTable(selectedTable, searchAttribute, searchValue);
-      setResults(searchResults);
+      const data = await searchTable(selectedTable, searchAttribute, searchValue);
+      setResults(data);
       
-      if (searchResults.length === 0) {
+      if (data.length === 0) {
         toast({
           title: "No Results",
           description: "No records found matching your search criteria",
@@ -43,13 +55,13 @@ export const SearchTab: React.FC = () => {
       } else {
         toast({
           title: "Search Complete",
-          description: `Found ${searchResults.length} record(s)`,
+          description: `Found ${data.length} record(s)`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Search Error",
-        description: "An error occurred while searching",
+        description: error.message || "Failed to search data",
         variant: "destructive",
       });
     } finally {

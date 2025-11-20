@@ -6,6 +6,12 @@ import { Label } from '@/components/ui/label';
 import { LogIn, Mail, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(1, 'Password is required').max(100, 'Password too long')
+});
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
@@ -22,6 +28,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
     setIsLoading(true);
 
     try {
+      // Validate input
+      const validation = loginSchema.safeParse({ email, password });
+      if (!validation.success) {
+        toast({
+          title: "Validation Error",
+          description: validation.error.errors[0].message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -36,13 +54,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       } else {
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${email}!`,
+          description: `Welcome back!`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred during login",
+        description: error.message || "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {

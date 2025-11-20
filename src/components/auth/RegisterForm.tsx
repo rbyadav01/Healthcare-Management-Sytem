@@ -6,6 +6,12 @@ import { Label } from '@/components/ui/label';
 import { UserPlus, Mail, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const registerSchema = z.object({
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password too long')
+});
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -22,30 +28,57 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`
-        }
+      // Validate input
+      const validation = registerSchema.safeParse({ email, password });
+      if (!validation.success) {
+        toast({
+          title: "Validation Error",
+          description: validation.error.errors[0].message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Call the register edge function
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('register', {
+        body: { email, password }
       });
 
-      if (error) {
+      if (functionError) {
         toast({
           title: "Registration Failed",
-          description: error.message,
+          description: functionError.message,
           variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Sign in the user after successful registration
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        toast({
+          title: "Account Created",
+          description: "Please sign in with your new account.",
         });
       } else {
         toast({
           title: "Account Created",
-          description: "Check your email to confirm your account!",
+          description: "Registration successful! You are now signed in.",
         });
       }
-    } catch (error) {
+      
+      setEmail('');
+      setPassword('');
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred during registration",
+        description: error.message || "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {

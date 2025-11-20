@@ -7,6 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { insertData } from '@/utils/database';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const insertSchema = z.object({
+  tableName: z.string().min(1, 'Table is required'),
+  attributes: z.string().trim().min(1, 'Attributes are required').max(500),
+  values: z.string().trim().min(1, 'Values are required').max(2000)
+});
 
 export const InsertTab: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState('');
@@ -15,31 +22,19 @@ export const InsertTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const availableTables = ['Account', 'Appointments', 'Messages', 'HealthRecord'];
+  const availableTables = ['appointments', 'doctor_patient_messages', 'health_records', 'medications'];
 
   const handleInsert = async () => {
-    if (!selectedTable) {
-      toast({
-        title: "Table Required",
-        description: "Please select a table to insert data",
-        variant: "destructive",
-      });
-      return;
-    }
+    const validation = insertSchema.safeParse({
+      tableName: selectedTable,
+      attributes,
+      values
+    });
 
-    if (!availableTables.includes(selectedTable)) {
+    if (!validation.success) {
       toast({
-        title: "Access Denied",
-        description: "Don't have access to that table.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!attributes || !values) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide both attributes and values",
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
         variant: "destructive",
       });
       return;
@@ -47,41 +42,37 @@ export const InsertTab: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const attributeList = attributes.split(',').map(attr => attr.trim());
-      const valueList = values.split(',').map(val => val.trim());
+      const attributeArray = attributes.split(',').map(attr => attr.trim());
+      const valueArray = values.split(',').map(val => val.trim());
 
-      if (attributeList.length !== valueList.length) {
+      if (attributeArray.length !== valueArray.length) {
         toast({
           title: "Mismatch Error",
-          description: "Number of attributes and values must match",
+          description: "Number of attributes must match number of values",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
 
-      const success = insertData(selectedTable, attributeList, valueList);
-      
-      if (success) {
-        console.log(`Data successfully inserted into ${selectedTable}`);
-        toast({
-          title: "Insert Successful",
-          description: `Data successfully inserted into ${selectedTable}`,
-        });
-        
-        // Clear form
-        setAttributes('');
-        setValues('');
-      } else {
-        toast({
-          title: "Insert Failed",
-          description: "Failed to insert data into the table",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      // Convert arrays to object
+      const data: Record<string, any> = {};
+      attributeArray.forEach((attr, index) => {
+        data[attr] = valueArray[index];
+      });
+
+      await insertData(selectedTable, data);
+
+      toast({
+        title: "Insert Successful",
+        description: "Data inserted successfully",
+      });
+      setAttributes('');
+      setValues('');
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred during insertion",
+        description: error.message || "Failed to insert data",
         variant: "destructive",
       });
     } finally {

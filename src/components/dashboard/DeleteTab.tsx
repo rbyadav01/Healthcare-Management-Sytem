@@ -7,6 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { deleteData } from '@/utils/database';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const deleteSchema = z.object({
+  tableName: z.string().min(1, 'Table is required'),
+  attribute: z.string().trim().min(1, 'Attribute is required').max(100),
+  value: z.string().trim().min(1, 'Value is required').max(500)
+});
 
 export const DeleteTab: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState('');
@@ -15,31 +22,19 @@ export const DeleteTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const availableTables = ['Account', 'Appointments', 'Messages', 'HealthRecord'];
+  const availableTables = ['appointments', 'doctor_patient_messages', 'health_records', 'medications'];
 
   const handleDelete = async () => {
-    if (!selectedTable) {
-      toast({
-        title: "Table Required",
-        description: "Please select a table to delete data from",
-        variant: "destructive",
-      });
-      return;
-    }
+    const validation = deleteSchema.safeParse({
+      tableName: selectedTable,
+      attribute,
+      value
+    });
 
-    if (!availableTables.includes(selectedTable)) {
+    if (!validation.success) {
       toast({
-        title: "Access Denied",
-        description: "Don't have access to that table.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!attribute || !value) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide both attribute and value for deletion",
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
         variant: "destructive",
       });
       return;
@@ -47,29 +42,18 @@ export const DeleteTab: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const success = deleteData(selectedTable, attribute, value);
-      
-      if (success) {
-        console.log(`Data successfully deleted from ${selectedTable}`);
-        toast({
-          title: "Delete Successful",
-          description: `Data successfully deleted from ${selectedTable}`,
-        });
-        
-        // Clear form
-        setAttribute('');
-        setValue('');
-      } else {
-        toast({
-          title: "Delete Failed",
-          description: "Failed to delete data from the table",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      await deleteData(selectedTable, attribute, value);
+
+      toast({
+        title: "Delete Successful",
+        description: "Data deleted successfully",
+      });
+      setAttribute('');
+      setValue('');
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred during deletion",
+        description: error.message || "Failed to delete data",
         variant: "destructive",
       });
     } finally {

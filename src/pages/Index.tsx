@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { Dashboard } from '@/components/dashboard/Dashboard';
-import { initializeDatabase } from '@/utils/database';
 import { supabase } from '@/integrations/supabase/client';
 import { Stethoscope, Heart, Users, Calendar } from 'lucide-react';
 import type { User, Session } from '@supabase/supabase-js';
@@ -15,8 +14,6 @@ const Index = () => {
   const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
-    initializeDatabase();
-    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
