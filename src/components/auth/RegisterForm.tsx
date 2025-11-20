@@ -46,9 +46,49 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
       });
 
       if (functionError) {
+        // Check if user already exists
+        const errorMsg = functionError.message || '';
+        if (errorMsg.includes('already been registered') || 
+            errorMsg.includes('email address has already been registered')) {
+          toast({
+            title: "Account Already Exists",
+            description: "This email is already registered. Switching to login...",
+            variant: "destructive",
+          });
+          // Auto-switch to login after showing the message
+          setTimeout(() => onSwitchToLogin(), 2000);
+          setIsLoading(false);
+          return;
+        }
+        
         toast({
           title: "Registration Failed",
           description: functionError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if there's an error in the response body
+      if (functionData?.error) {
+        const errorMsg = functionData.error;
+        if (errorMsg.includes('already been registered') || 
+            errorMsg.includes('email address has already been registered')) {
+          toast({
+            title: "Account Already Exists",
+            description: "This email is already registered. Switching to login...",
+            variant: "destructive",
+          });
+          // Auto-switch to login after showing the message
+          setTimeout(() => onSwitchToLogin(), 2000);
+          setIsLoading(false);
+          return;
+        }
+        
+        toast({
+          title: "Registration Failed",
+          description: errorMsg,
           variant: "destructive",
         });
         setIsLoading(false);
