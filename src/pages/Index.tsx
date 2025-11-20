@@ -1,42 +1,45 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { initializeDatabase } from '@/utils/database';
+import { supabase } from '@/integrations/supabase/client';
 import { Stethoscope, Heart, Users, Calendar } from 'lucide-react';
+import type { User, Session } from '@supabase/supabase-js';
 
 const Index = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [showRegister, setShowRegister] = useState(false);
-  const [currentUser, setCurrentUser] = useState<string>('');
 
   useEffect(() => {
-    // Initialize the database on startup
     initializeDatabase();
     
-    // Check if user is already logged in
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      setIsLoggedIn(true);
-      setCurrentUser(savedUser);
-    }
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = (email: string) => {
-    setIsLoggedIn(true);
-    setCurrentUser(email);
-    localStorage.setItem('currentUser', email);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser('');
-    localStorage.removeItem('currentUser');
-  };
-
-  if (isLoggedIn) {
-    return <Dashboard currentUser={currentUser} onLogout={handleLogout} />;
+  if (user && session) {
+    return <Dashboard currentUser={user.email || ''} onLogout={handleLogout} />;
   }
 
   return (
@@ -107,15 +110,13 @@ const Index = () => {
           </div>
 
           {/* Right side - Auth Forms */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+          <div className="bg-card rounded-2xl shadow-xl p-8 border border-border">
             {showRegister ? (
               <RegisterForm 
-                onRegister={handleLogin}
                 onSwitchToLogin={() => setShowRegister(false)}
               />
             ) : (
               <LoginForm 
-                onLogin={handleLogin}
                 onSwitchToRegister={() => setShowRegister(true)}
               />
             )}
