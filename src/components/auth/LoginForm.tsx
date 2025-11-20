@@ -4,15 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogIn, Mail, Lock } from 'lucide-react';
-import { validateLogin } from '@/utils/auth';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface LoginFormProps {
-  onLogin: (email: string) => void;
   onSwitchToRegister: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegister }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,20 +22,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegiste
     setIsLoading(true);
 
     try {
-      const isValid = validateLogin(email, password);
-      if (isValid) {
-        console.log(`Logged in as, ${email}`);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
         toast({
           title: "Login Successful",
           description: `Welcome back, ${email}!`,
-        });
-        onLogin(email);
-      } else {
-        console.log("Did not find account.");
-        toast({
-          title: "Login Failed",
-          description: "The account requested couldn't be found",
-          variant: "destructive",
         });
       }
     } catch (error) {
@@ -53,41 +53,41 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegiste
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <div className="bg-blue-100 p-3 rounded-full w-fit mx-auto">
-          <LogIn className="h-6 w-6 text-blue-600" />
+        <div className="bg-primary/10 p-3 rounded-full w-fit mx-auto">
+          <LogIn className="h-6 w-6 text-primary" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-        <p className="text-gray-600">Sign in to access your healthcare dashboard</p>
+        <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
+        <p className="text-muted-foreground">Sign in to access your healthcare dashboard</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+          <Label htmlFor="email">Email</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               id="email"
               type="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              className="pl-10"
               required
             />
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+          <Label htmlFor="password">Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               id="password"
               type="password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              className="pl-10"
               required
             />
           </div>
@@ -95,7 +95,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegiste
 
         <Button 
           type="submit" 
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
+          className="w-full"
           disabled={isLoading}
         >
           {isLoading ? "Signing in..." : "Sign In"}
@@ -103,11 +103,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegiste
       </form>
 
       <div className="text-center">
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Don't have an account?{' '}
           <button
             onClick={onSwitchToRegister}
-            className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
+            className="text-primary hover:underline font-medium"
           >
             Create Account
           </button>
