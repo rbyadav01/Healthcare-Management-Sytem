@@ -7,6 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateData } from '@/utils/database';
 import { Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
+
+const updateSchema = z.object({
+  tableName: z.string().min(1, 'Table is required'),
+  attribute: z.string().trim().min(1, 'Attribute is required').max(100),
+  currentValue: z.string().trim().min(1, 'Current value is required').max(500),
+  newValue: z.string().trim().min(1, 'New value is required').max(500)
+});
 
 export const UpdateTab: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState('');
@@ -16,31 +24,20 @@ export const UpdateTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const availableTables = ['Account', 'Appointments', 'Messages', 'HealthRecord'];
+  const availableTables = ['appointments', 'doctor_patient_messages', 'health_records', 'medications'];
 
   const handleUpdate = async () => {
-    if (!selectedTable) {
-      toast({
-        title: "Table Required",
-        description: "Please select a table to update data",
-        variant: "destructive",
-      });
-      return;
-    }
+    const validation = updateSchema.safeParse({
+      tableName: selectedTable,
+      attribute,
+      currentValue,
+      newValue
+    });
 
-    if (!availableTables.includes(selectedTable)) {
+    if (!validation.success) {
       toast({
-        title: "Access Denied",
-        description: "Don't have access to that table.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!attribute || !currentValue || !newValue) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all update fields",
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
         variant: "destructive",
       });
       return;
@@ -48,30 +45,20 @@ export const UpdateTab: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const success = updateData(selectedTable, attribute, currentValue, newValue);
-      
-      if (success) {
-        console.log(`Data successfully updated into ${selectedTable}`);
-        toast({
-          title: "Update Successful",
-          description: `Data successfully updated in ${selectedTable}`,
-        });
-        
-        // Clear form
-        setAttribute('');
-        setCurrentValue('');
-        setNewValue('');
-      } else {
-        toast({
-          title: "Update Failed",
-          description: "Failed to update data in the table",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      const updates: Record<string, any> = { [attribute]: newValue };
+      await updateData(selectedTable, attribute, currentValue, updates);
+
+      toast({
+        title: "Update Successful",
+        description: "Data updated successfully",
+      });
+      setAttribute('');
+      setCurrentValue('');
+      setNewValue('');
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An error occurred during update",
+        description: error.message || "Failed to update data",
         variant: "destructive",
       });
     } finally {
